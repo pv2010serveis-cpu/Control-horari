@@ -1,0 +1,8 @@
+
+{
+  "name": "CONTROL HORARI",
+  "description": "Solució integral per al control horari i gestió de personal.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
