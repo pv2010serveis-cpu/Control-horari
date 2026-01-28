@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Shield, MapPin, Download, ExternalLink, Users, Calendar, X, Check, Circle } from 'lucide-react';
+import { Shield, MapPin, Download, ExternalLink, Users, Calendar, X, Check, Briefcase, RefreshCw, Database } from 'lucide-react';
 import { VacationRequest, TimeEntry, User } from '../types';
 
 interface AdminProps {
@@ -8,10 +8,13 @@ interface AdminProps {
   allEntries: TimeEntry[];
   users: User[];
   onUpdate: (id: string, status: 'APPROVED' | 'REJECTED') => void;
+  onSync: () => void;
+  isSyncing: boolean;
 }
 
-const AdminView: React.FC<AdminProps> = ({ vacations, allEntries, users, onUpdate }) => {
+const AdminView: React.FC<AdminProps> = ({ vacations, allEntries, users, onUpdate, onSync, isSyncing }) => {
   const pending = vacations.filter(v => v.status === 'PENDING');
+  const unsyncedCount = allEntries.filter(e => !e.synced).length;
   
   const getUserStatus = (userId: string) => {
     const today = new Date().toDateString();
@@ -32,14 +35,23 @@ const AdminView: React.FC<AdminProps> = ({ vacations, allEntries, users, onUpdat
           <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center">
             <Shield size={20} />
           </div>
-          <h2 className="text-xl font-bold text-slate-800">Equip</h2>
+          <h2 className="text-xl font-bold text-slate-800">Administració</h2>
         </div>
-        <button className="p-2 text-indigo-600 bg-indigo-50 rounded-lg">
-          <Download size={18} />
-        </button>
+        <div className="flex gap-2">
+          <button 
+            onClick={onSync}
+            disabled={isSyncing}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm ${
+              isSyncing ? 'bg-slate-100 text-slate-400' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+            }`}
+          >
+            {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Database size={14} />}
+            {unsyncedCount > 0 ? `Sync Sheets (${unsyncedCount})` : 'Dades al Drive'}
+          </button>
+        </div>
       </header>
 
-      {/* Estat de la Plantilla - Més compacte */}
+      {/* Estat de la Plantilla */}
       <section className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -104,23 +116,41 @@ const AdminView: React.FC<AdminProps> = ({ vacations, allEntries, users, onUpdat
         </section>
       )}
 
-      {/* Moviments GPS - Compacte */}
+      {/* Moviments GPS i Sync Status */}
       <section className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
           <MapPin size={14} /> GPS Recent
         </h3>
         <div className="space-y-2">
-          {allEntries.slice(0, 4).map(e => (
-            <div key={e.id} className="flex items-center justify-between p-2 bg-slate-50/30 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${e.type === 'IN' ? 'bg-emerald-400' : 'bg-rose-400'}`}></div>
-                <span className="text-[10px] font-bold text-slate-600 truncate max-w-[80px]">{e.userName}</span>
+          {allEntries.slice(0, 8).map(e => (
+            <div key={e.id} className="flex items-center justify-between p-2.5 bg-slate-50/30 rounded-xl border border-slate-50">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${e.type === 'IN' ? 'bg-emerald-400' : 'bg-rose-400'}`}></div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-slate-600 block truncate">{e.userName}</span>
+                    {/* Fix: Wrapped Database icon in a span to handle title attribute correctly as Lucide components do not support title prop */}
+                    {e.synced && (
+                      <span title="Sincronitzat amb Drive">
+                        <Database size={8} className="text-emerald-500" />
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-black uppercase ${e.locationLabel === 'MAGATZEM' ? 'text-indigo-600' : 'text-slate-400'}`}>
+                    {e.locationLabel || 'Sense GPS'}
+                  </span>
+                </div>
               </div>
-              {e.location && (
-                <a href={`https://www.google.com/maps?q=${e.location.latitude},${e.location.longitude}`} target="_blank" className="text-indigo-500">
-                  <ExternalLink size={12}/>
-                </a>
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-300 font-mono">
+                  {e.timestamp.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                </span>
+                {e.location && (
+                  <a href={`https://www.google.com/maps?q=${e.location.latitude},${e.location.longitude}`} target="_blank" className="p-1.5 bg-white text-indigo-500 rounded-lg border border-slate-100 hover:bg-indigo-50">
+                    <ExternalLink size={12}/>
+                  </a>
+                )}
+              </div>
             </div>
           ))}
         </div>

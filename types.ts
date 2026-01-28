@@ -14,6 +14,8 @@ export interface TimeEntry {
   timestamp: Date;
   type: EntryType;
   location?: LocationData;
+  locationLabel?: string;
+  synced?: boolean; // Nou camp per control de sincronització
 }
 
 export interface VacationRequest {
