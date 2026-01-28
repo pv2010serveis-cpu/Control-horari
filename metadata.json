@@ -1,7 +1,6 @@
-
 {
   "name": "CONTROL HORARI",
-  "description": "Solució integral per al control horari i gestió de personal.",
+  "description": "Sistema de control horari professional amb calendari laboral 2026.",
   "requestFramePermissions": [
     "geolocation"
   ]

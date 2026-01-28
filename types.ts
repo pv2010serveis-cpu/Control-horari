@@ -10,7 +10,7 @@ export interface LocationData {
 export interface TimeEntry {
   id: string;
   userId: string;
-  userName?: string;
+  userName: string;
   timestamp: Date;
   type: EntryType;
   location?: LocationData;
