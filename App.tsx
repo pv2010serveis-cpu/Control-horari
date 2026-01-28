@@ -16,7 +16,7 @@ import Auth from './components/Auth';
 import { TimeEntry, VacationRequest, User } from './types';
 
 // URL de la Web App d'Apps Script facilitada per l'usuari
-const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzPU3bc6TJecgTFH2ZsxJ-NI9WBKXrEpYpGMKlfrX6by2e06kWwRzSMA-b2-4_q8XXb/exec"; 
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyyDBmj3ZmztievqvC-4bDDcrylQkVV4r772fdvbC2O-P9ZgnKZAVQuacxmH_Iss74/exec"; 
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -44,28 +44,35 @@ const App: React.FC = () => {
     return [];
   });
 
-  // Funció de Sincronització millorada
+  // Funció de Sincronització millorada per enviar dades netes
   const syncWithSheets = useCallback(async (manualEntries?: TimeEntry[]) => {
     if (!GOOGLE_SHEETS_URL) return;
 
-    // Si no passen entrades manuals, busquem les no sincronitzades a l'estat actual
+    // Busquem les no sincronitzades a l'estat actual si no venen per paràmetre
     const dataToSync = manualEntries || entries.filter(e => !e.synced);
     if (dataToSync.length === 0) return;
 
     setIsSyncing(true);
     try {
-      // Fem el POST. Fem servir no-cors perquè Apps Script sovint dóna problemes de CORS al navegador, 
-      // però les dades arriben igualment al servidor.
+      // Preparem les dades per evitar enviar objectes complexos com 'location' que no volem al sheet
+      const payload = dataToSync.map(e => ({
+        id: e.id,
+        userName: e.userName,
+        timestamp: e.timestamp,
+        type: e.type,
+        locationLabel: e.locationLabel
+      }));
+
       await fetch(GOOGLE_SHEETS_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ entries: dataToSync })
+        body: JSON.stringify({ entries: payload })
       });
 
-      // Si no hi ha error en el fetch, marquem com a sincronitzats localment
+      // Marquem com a sincronitzats localment
       setEntries(prev => prev.map(e => {
         if (dataToSync.find(d => d.id === e.id)) {
           return { ...e, synced: true };
@@ -73,9 +80,9 @@ const App: React.FC = () => {
         return e;
       }));
       
-      console.log("Sincronització completada amb èxit.");
+      console.log("Dades enviades al Google Sheet.");
     } catch (error) {
-      console.error("Error en el procés de sincronització:", error);
+      console.error("Error sincronitzant:", error);
     } finally {
       setIsSyncing(false);
     }
@@ -100,10 +107,13 @@ const App: React.FC = () => {
 
   const handleAddEntry = (entry: TimeEntry) => {
     const newEntryWithStatus = { ...entry, synced: false };
+    
+    // Primer actualitzem l'estat local
     setEntries(prev => [newEntryWithStatus, ...prev]);
     
-    // Intentem sync automàtic immediatament per aquesta entrada
-    setTimeout(() => syncWithSheets([newEntryWithStatus]), 500);
+    // Forçem la sincronització immediata d'aquest fitxatge específic
+    // Utilitzem un petit delay per assegurar que el fetch no bloquegi la UI
+    setTimeout(() => syncWithSheets([newEntryWithStatus]), 300);
   };
 
   const handleLogout = () => {
