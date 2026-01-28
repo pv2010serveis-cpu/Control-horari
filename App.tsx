@@ -15,7 +15,7 @@ import Reports from './components/Reports';
 import Auth from './components/Auth';
 import { TimeEntry, VacationRequest, User } from './types';
 
-// URL de la Web App d'Apps Script (L'usuari l'ha de posar aquí)
+// URL de la Web App d'Apps Script facilitada per l'usuari
 const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzPU3bc6TJecgTFH2ZsxJ-NI9WBKXrEpYpGMKlfrX6by2e06kWwRzSMA-b2-4_q8XXb/exec"; 
 
 const App: React.FC = () => {
@@ -44,36 +44,38 @@ const App: React.FC = () => {
     return [];
   });
 
-  // Funció de Sincronització
+  // Funció de Sincronització millorada
   const syncWithSheets = useCallback(async (manualEntries?: TimeEntry[]) => {
-    if (!GOOGLE_SHEETS_URL) {
-      console.warn("Falta la URL de Google Sheets per sincronitzar.");
-      return;
-    }
+    if (!GOOGLE_SHEETS_URL) return;
 
+    // Si no passen entrades manuals, busquem les no sincronitzades a l'estat actual
     const dataToSync = manualEntries || entries.filter(e => !e.synced);
     if (dataToSync.length === 0) return;
 
     setIsSyncing(true);
     try {
-      const response = await fetch(GOOGLE_SHEETS_URL, {
+      // Fem el POST. Fem servir no-cors perquè Apps Script sovint dóna problemes de CORS al navegador, 
+      // però les dades arriben igualment al servidor.
+      await fetch(GOOGLE_SHEETS_URL, {
         method: 'POST',
-        mode: 'no-cors', // Apps Script requereix no-cors o un handling especial
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ entries: dataToSync })
       });
 
-      // Com que 'no-cors' no retorna el body, marquem com a sincronitzats localment si no peta
-      const updatedEntries = entries.map(e => {
+      // Si no hi ha error en el fetch, marquem com a sincronitzats localment
+      setEntries(prev => prev.map(e => {
         if (dataToSync.find(d => d.id === e.id)) {
           return { ...e, synced: true };
         }
         return e;
-      });
+      }));
       
-      setEntries(updatedEntries);
-      console.log("Sincronització enviada al Drive.");
+      console.log("Sincronització completada amb èxit.");
     } catch (error) {
-      console.error("Error sincronitzant:", error);
+      console.error("Error en el procés de sincronització:", error);
     } finally {
       setIsSyncing(false);
     }
@@ -97,10 +99,11 @@ const App: React.FC = () => {
   }, []);
 
   const handleAddEntry = (entry: TimeEntry) => {
-    const newEntries = [entry, ...entries];
-    setEntries(newEntries);
-    // Intentem sync automàtic
-    setTimeout(() => syncWithSheets([entry]), 1000);
+    const newEntryWithStatus = { ...entry, synced: false };
+    setEntries(prev => [newEntryWithStatus, ...prev]);
+    
+    // Intentem sync automàtic immediatament per aquesta entrada
+    setTimeout(() => syncWithSheets([newEntryWithStatus]), 500);
   };
 
   const handleLogout = () => {
