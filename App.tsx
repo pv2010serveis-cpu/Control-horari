@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Clock, 
   Calendar as CalendarIcon, 
@@ -15,13 +15,13 @@ import Reports from './components/Reports';
 import Auth from './components/Auth';
 import { TimeEntry, VacationRequest, User } from './types';
 
-// URL de la Web App d'Apps Script facilitada per l'usuari
 const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzPU3bc6TJecgTFH2ZsxJ-NI9WBKXrEpYpGMKlfrX6by2e06kWwRzSMA-b2-4_q8XXb/exec"; 
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'reports' | 'admin'>('dashboard');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [holidays, setHolidays] = useState<{date: string, name: string, type: string}[]>([]);
   
   const [entries, setEntries] = useState<TimeEntry[]>(() => {
     const saved = localStorage.getItem('horari_entries');
@@ -32,8 +32,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('horari_users');
     const u = saved ? JSON.parse(saved) : [];
     if (!u.find((usr: any) => usr.pin === '9999')) {
-      const admin = { id: 'admin-albert', name: 'Albert', pin: '9999', role: 'ADMIN' };
-      return [admin, ...u];
+      return [{ id: 'admin-albert', name: 'Albert', pin: '9999', role: 'ADMIN' }, ...u];
     }
     return u;
   });
@@ -44,49 +43,102 @@ const App: React.FC = () => {
     return [];
   });
 
-  // Funció de Sincronització millorada per enviar dades netes
+  const entriesRef = useRef(entries);
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+
+  // Carregar festius des del Sheets (Full 2)
+  const fetchHolidays = useCallback(async () => {
+    try {
+      const res = await fetch(GOOGLE_SHEETS_URL);
+      const data = await res.json();
+      if (Array.isArray(data)) setHolidays(data);
+    } catch (e) {
+      console.error("Error carregant festius:", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHolidays();
+  }, [fetchHolidays]);
+
+  // Inicialitzar calendari segons PDF Construcció Tarragona 2026
+  const setupHolidaysFromPDF = async () => {
+    const pdfHolidays = [
+      // Oficials (Vermell)
+      { date: '2026-01-01', name: 'Any Nou', type: 'system' },
+      { date: '2026-01-06', name: 'Reis', type: 'system' },
+      { date: '2026-04-03', name: 'Divendres Sant', type: 'system' },
+      { date: '2026-04-06', name: 'Dilluns Pasqua', type: 'system' },
+      { date: '2026-05-01', name: 'Festa Treball', type: 'system' },
+      { date: '2026-06-24', name: 'Sant Joan', type: 'system' },
+      { date: '2026-08-15', name: 'Assumpció', type: 'system' },
+      { date: '2026-09-11', name: 'Diada Nacional', type: 'system' },
+      { date: '2026-10-12', name: 'Festa Nacional', type: 'system' },
+      { date: '2026-12-08', name: 'Immaculada', type: 'system' },
+      { date: '2026-12-25', name: 'Nadal', type: 'system' },
+      { date: '2026-12-26', name: 'Sant Esteve', type: 'system' },
+      // Conveni (Groc)
+      { date: '2026-01-02', name: 'Conveni', type: 'conveni' },
+      { date: '2026-01-05', name: 'Conveni', type: 'conveni' },
+      { date: '2026-03-19', name: 'Conveni (Sant Josep)', type: 'conveni' },
+      { date: '2026-12-07', name: 'Conveni', type: 'conveni' },
+      { date: '2026-12-24', name: 'Conveni', type: 'conveni' },
+      { date: '2026-12-31', name: 'Conveni', type: 'conveni' },
+      // Vacances Sector (Blau) - De 3 a 21 d'agost
+      ...Array.from({length: 19}, (_, i) => ({
+        date: `2026-08-${(i+3).toString().padStart(2, '0')}`,
+        name: 'Vacances Sector',
+        type: 'sector'
+      }))
+    ];
+
+    setIsSyncing(true);
+    try {
+      await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({ action: 'SET_HOLIDAYS', holidays: pdfHolidays })
+      });
+      setHolidays(pdfHolidays);
+      alert("Calendari 2026 inicialitzat al Full 2!");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const syncWithSheets = useCallback(async (manualEntries?: TimeEntry[]) => {
     if (!GOOGLE_SHEETS_URL) return;
-
-    // Busquem les no sincronitzades a l'estat actual si no venen per paràmetre
-    const dataToSync = manualEntries || entries.filter(e => !e.synced);
+    const dataToSync = manualEntries || entriesRef.current.filter(e => !e.synced);
     if (dataToSync.length === 0) return;
 
     setIsSyncing(true);
     try {
-      // Preparem les dades per evitar enviar objectes complexos com 'location' que no volem al sheet
       const payload = dataToSync.map(e => ({
         id: e.id,
         userName: e.userName,
-        timestamp: e.timestamp,
+        timestamp: e.timestamp.toISOString(),
         type: e.type,
-        locationLabel: e.locationLabel
+        locationLabel: e.locationLabel || "Sense GPS"
       }));
 
       await fetch(GOOGLE_SHEETS_URL, {
         method: 'POST',
         mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ entries: payload })
       });
 
-      // Marquem com a sincronitzats localment
       setEntries(prev => prev.map(e => {
-        if (dataToSync.find(d => d.id === e.id)) {
-          return { ...e, synced: true };
-        }
+        if (dataToSync.find(d => d.id === e.id)) return { ...e, synced: true };
         return e;
       }));
-      
-      console.log("Dades enviades al Google Sheet.");
     } catch (error) {
-      console.error("Error sincronitzant:", error);
+      console.error(error);
     } finally {
       setIsSyncing(false);
     }
-  }, [entries]);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('horari_entries', JSON.stringify(entries));
@@ -106,14 +158,9 @@ const App: React.FC = () => {
   }, []);
 
   const handleAddEntry = (entry: TimeEntry) => {
-    const newEntryWithStatus = { ...entry, synced: false };
-    
-    // Primer actualitzem l'estat local
-    setEntries(prev => [newEntryWithStatus, ...prev]);
-    
-    // Forçem la sincronització immediata d'aquest fitxatge específic
-    // Utilitzem un petit delay per assegurar que el fetch no bloquegi la UI
-    setTimeout(() => syncWithSheets([newEntryWithStatus]), 300);
+    const newEntry = { ...entry, synced: false };
+    setEntries(prev => [newEntry, ...prev]);
+    setTimeout(() => syncWithSheets([newEntry]), 500);
   };
 
   const handleLogout = () => {
@@ -166,30 +213,10 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-xl border border-slate-200/50 px-6 py-3 rounded-full flex gap-8 items-center z-50 shadow-xl">
-        <button onClick={() => setActiveTab('dashboard')} className={`${activeTab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <LayoutDashboard size={22} />
-        </button>
-        <button onClick={() => setActiveTab('calendar')} className={`${activeTab === 'calendar' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <CalendarIcon size={22} />
-        </button>
-        <button onClick={() => setActiveTab('reports')} className={`${activeTab === 'reports' ? 'text-indigo-600' : 'text-slate-400'}`}>
-          <BarChart3 size={22} />
-        </button>
-        {currentUser.role === 'ADMIN' && (
-          <button onClick={() => setActiveTab('admin')} className={`${activeTab === 'admin' ? 'text-indigo-600' : 'text-slate-400'}`}>
-            <ShieldCheck size={22} />
-          </button>
-        )}
-        <button onClick={handleLogout} className="text-rose-400">
-          <LogOut size={22} />
-        </button>
-      </nav>
-
       <main className="flex-1 px-4 py-6 md:p-10 lg:p-12 overflow-y-auto overflow-x-hidden">
         <div className="max-w-5xl mx-auto">
           {activeTab === 'dashboard' && <TimeTracker user={currentUser} entries={entries} onAddEntry={handleAddEntry} />}
-          {activeTab === 'calendar' && <CalendarView userId={currentUser.id} vacations={vacations} onRequest={(s,e) => setVacations([...vacations, {id: Math.random().toString(36).substr(2,9), userId: currentUser.id, userName: currentUser.name, startDate: s, endDate: e, status: 'PENDING'}])} />}
+          {activeTab === 'calendar' && <CalendarView userId={currentUser.id} vacations={vacations} holidays={holidays} onRequest={(s,e) => setVacations([...vacations, {id: Math.random().toString(36).substr(2,9), userId: currentUser.id, userName: currentUser.name, startDate: s, endDate: e, status: 'PENDING'}])} />}
           {activeTab === 'reports' && <Reports entries={entries.filter(e => e.userId === currentUser.id)} />}
           {activeTab === 'admin' && currentUser.role === 'ADMIN' && (
             <AdminView 
@@ -198,6 +225,7 @@ const App: React.FC = () => {
               users={users} 
               onUpdate={(id, status) => setVacations(vacations.map(v => v.id === id ? {...v, status} : v))} 
               onSync={() => syncWithSheets()}
+              onSetupHolidays={setupHolidaysFromPDF}
               isSyncing={isSyncing}
             />
           )}
