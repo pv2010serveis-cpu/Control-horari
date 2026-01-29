@@ -16,7 +16,7 @@ import Auth from './components/Auth';
 import { TimeEntry, VacationRequest, User } from './types';
 
 // URL de la Web App d'Apps Script facilitada per l'usuari
-const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyyDBmj3ZmztievqvC-4bDDcrylQkVV4r772fdvbC2O-P9ZgnKZAVQuacxmH_Iss74/exec"; 
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzPU3bc6TJecgTFH2ZsxJ-NI9WBKXrEpYpGMKlfrX6by2e06kWwRzSMA-b2-4_q8XXb/exec"; 
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
