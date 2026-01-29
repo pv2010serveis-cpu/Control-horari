@@ -15,7 +15,7 @@ import Reports from './components/Reports';
 import Auth from './components/Auth';
 import { TimeEntry, VacationRequest, User } from './types';
 
-const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzPU3bc6TJecgTFH2ZsxJ-NI9WBKXrEpYpGMKlfrX6by2e06kWwRzSMA-b2-4_q8XXb/exec"; 
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbwnGhzE0itlqbwFgiT3hJ_twP9Pk1lDnA6gPKaGFIhYEk5JDs9r7YRXaHmbYmtAm6HX/exec"; 
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
