@@ -135,7 +135,8 @@ const AdminView: React.FC<AdminProps> = ({ vacations, allEntries, users, onUpdat
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-slate-600 block truncate">{e.userName}</span>
-                    {e.synced && <Database size={8} className="text-emerald-500" title="Enviat al Drive" />}
+                    {/* Fix: Lucide icons do not support the 'title' prop. Wrapping in a span with the title attribute to fix TypeScript error. */}
+                    {e.synced && <span title="Enviat al Drive"><Database size={8} className="text-emerald-500" /></span>}
                   </div>
                   <span className={`text-[9px] font-black uppercase ${e.locationLabel === 'MAGATZEM' ? 'text-indigo-600' : 'text-slate-400'}`}>
                     {e.locationLabel || 'Sense dades'}

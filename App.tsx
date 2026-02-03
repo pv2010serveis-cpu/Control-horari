@@ -15,7 +15,7 @@ import Reports from './components/Reports';
 import Auth from './components/Auth';
 import { TimeEntry, VacationRequest, User } from './types';
 
-const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbwnGhzE0itlqbwFgiT3hJ_twP9Pk1lDnA6gPKaGFIhYEk5JDs9r7YRXaHmbYmtAm6HX/exec"; 
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbzPU3bc6TJecgTFH2ZsxJ-NI9WBKXrEpYpGMKlfrX6by2e06kWwRzSMA-b2-4_q8XXb/exec"; 
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -44,27 +44,78 @@ const App: React.FC = () => {
   });
 
   const entriesRef = useRef(entries);
+  const vacationsRef = useRef(vacations);
   useEffect(() => { entriesRef.current = entries; }, [entries]);
+  useEffect(() => { vacationsRef.current = vacations; }, [vacations]);
 
-  // Carregar festius des del Sheets (Full 2)
-  const fetchHolidays = useCallback(async () => {
+  // Carregar Dades (Festius i Vacances) des del Sheets
+  const fetchDataFromSheets = useCallback(async () => {
     try {
       const res = await fetch(GOOGLE_SHEETS_URL);
       const data = await res.json();
-      if (Array.isArray(data)) setHolidays(data);
+      
+      if (data.holidays) setHolidays(data.holidays);
+      
+      if (data.vacations) {
+        const loadedVacations = data.vacations.map((v: any) => ({
+          ...v,
+          startDate: new Date(v.startDate),
+          endDate: new Date(v.endDate)
+        }));
+        setVacations(loadedVacations);
+      }
     } catch (e) {
-      console.error("Error carregant festius:", e);
+      console.error("Error carregant dades del Sheets:", e);
     }
   }, []);
 
   useEffect(() => {
-    fetchHolidays();
-  }, [fetchHolidays]);
+    fetchDataFromSheets();
+  }, [fetchDataFromSheets]);
 
-  // Inicialitzar calendari segons PDF Construcció Tarragona 2026
+  // Sincronitzar Vacances cap al Sheets (Full 3)
+  const syncVacationsToSheets = async (updatedVacations: VacationRequest[]) => {
+    try {
+      await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        body: JSON.stringify({ 
+          action: 'SYNC_VACATIONS', 
+          vacations: updatedVacations.map(v => ({
+            ...v,
+            startDate: v.startDate.toISOString(),
+            endDate: v.endDate.toISOString()
+          }))
+        })
+      });
+    } catch (e) {
+      console.error("Error sincronitzant vacances:", e);
+    }
+  };
+
+  const handleRequestVacation = (s: Date, e: Date) => {
+    if (!currentUser) return;
+    const newVacation: VacationRequest = {
+      id: Math.random().toString(36).substr(2, 9),
+      userId: currentUser.id,
+      userName: currentUser.name,
+      startDate: s,
+      endDate: e,
+      status: 'PENDING'
+    };
+    const newVacations = [...vacations, newVacation];
+    setVacations(newVacations);
+    syncVacationsToSheets(newVacations);
+  };
+
+  const handleUpdateVacationStatus = (id: string, status: 'APPROVED' | 'REJECTED') => {
+    const newVacations = vacations.map(v => v.id === id ? { ...v, status } : v);
+    setVacations(newVacations);
+    syncVacationsToSheets(newVacations);
+  };
+
   const setupHolidaysFromPDF = async () => {
     const pdfHolidays = [
-      // Oficials (Vermell)
       { date: '2026-01-01', name: 'Any Nou', type: 'system' },
       { date: '2026-01-06', name: 'Reis', type: 'system' },
       { date: '2026-04-03', name: 'Divendres Sant', type: 'system' },
@@ -77,14 +128,12 @@ const App: React.FC = () => {
       { date: '2026-12-08', name: 'Immaculada', type: 'system' },
       { date: '2026-12-25', name: 'Nadal', type: 'system' },
       { date: '2026-12-26', name: 'Sant Esteve', type: 'system' },
-      // Conveni (Groc)
       { date: '2026-01-02', name: 'Conveni', type: 'conveni' },
       { date: '2026-01-05', name: 'Conveni', type: 'conveni' },
       { date: '2026-03-19', name: 'Conveni (Sant Josep)', type: 'conveni' },
       { date: '2026-12-07', name: 'Conveni', type: 'conveni' },
       { date: '2026-12-24', name: 'Conveni', type: 'conveni' },
       { date: '2026-12-31', name: 'Conveni', type: 'conveni' },
-      // Vacances Sector (Blau) - De 3 a 21 d'agost
       ...Array.from({length: 19}, (_, i) => ({
         date: `2026-08-${(i+3).toString().padStart(2, '0')}`,
         name: 'Vacances Sector',
@@ -216,14 +265,21 @@ const App: React.FC = () => {
       <main className="flex-1 px-4 py-6 md:p-10 lg:p-12 overflow-y-auto overflow-x-hidden">
         <div className="max-w-5xl mx-auto">
           {activeTab === 'dashboard' && <TimeTracker user={currentUser} entries={entries} onAddEntry={handleAddEntry} />}
-          {activeTab === 'calendar' && <CalendarView userId={currentUser.id} vacations={vacations} holidays={holidays} onRequest={(s,e) => setVacations([...vacations, {id: Math.random().toString(36).substr(2,9), userId: currentUser.id, userName: currentUser.name, startDate: s, endDate: e, status: 'PENDING'}])} />}
+          {activeTab === 'calendar' && (
+            <CalendarView 
+              userId={currentUser.id} 
+              vacations={vacations} 
+              holidays={holidays} 
+              onRequest={handleRequestVacation} 
+            />
+          )}
           {activeTab === 'reports' && <Reports entries={entries.filter(e => e.userId === currentUser.id)} />}
           {activeTab === 'admin' && currentUser.role === 'ADMIN' && (
             <AdminView 
               vacations={vacations} 
               allEntries={entries} 
               users={users} 
-              onUpdate={(id, status) => setVacations(vacations.map(v => v.id === id ? {...v, status} : v))} 
+              onUpdate={handleUpdateVacationStatus} 
               onSync={() => syncWithSheets()}
               onSetupHolidays={setupHolidaysFromPDF}
               isSyncing={isSyncing}
