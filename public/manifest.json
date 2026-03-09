@@ -1,0 +1,27 @@
+
+{
+  "id": "com.horaripro.app",
+  "name": "HorariPro Control Horari",
+  "short_name": "HorariPro",
+  "description": "Aplicació per al control de fitxatges i vacances.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2972/2972531.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2972/2972531.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
