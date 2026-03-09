@@ -174,6 +174,14 @@ const App: React.FC = () => {
       status: 'Pendent'
     };
     setAllVacations(prev => [...prev, newVac]);
+    
+    if (user.sheetsUrl) {
+      syncToSheets(newVac, user.sheetsUrl).then(success => {
+        if (success) {
+          console.log("Vacances sincronitzades correctament");
+        }
+      });
+    }
   };
 
   const updateVacationStatus = (id: string, status: 'Aprovada' | 'Denegada') => {
