@@ -152,7 +152,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, employeeCode, onSyncPending 
                         </span>
                         {session.in?.location && (
                           <span className="flex items-center gap-0.5 text-[8px] text-slate-400 mt-1">
-                            <MapPin size={8} /> GPS OK
+                            <MapPin size={8} /> {session.in.locationName || 'GPS OK'}
                           </span>
                         )}
                       </div>
@@ -164,7 +164,7 @@ const Reports: React.FC<ReportsProps> = ({ entries, employeeCode, onSyncPending 
                         </span>
                         {session.out?.location && (
                           <span className="flex items-center gap-0.5 text-[8px] text-slate-400 mt-1">
-                            <MapPin size={8} /> GPS OK
+                            <MapPin size={8} /> {session.out.locationName || 'GPS OK'}
                           </span>
                         )}
                       </div>

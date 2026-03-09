@@ -39,3 +39,6 @@ export const HOLIDAYS_2026: Holiday[] = [
 ];
 
 export const WORK_HOURS_PER_DAY = 8;
+
+export const WAREHOUSE_COORDS = { lat: 41.183029, lng: 1.448260 };
+export const GEOFENCE_RADIUS_METERS = 500;

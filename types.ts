@@ -15,6 +15,7 @@ export interface ClockEntry {
     lat: number;
     lng: number;
   };
+  locationName?: string;
 }
 
 export interface VacationRequest {

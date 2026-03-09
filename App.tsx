@@ -19,6 +19,18 @@ import LoginScreen from './components/LoginScreen';
 import SettingsView from './components/SettingsView';
 import VacationAdmin from './components/VacationAdmin';
 import { syncToSheets, fetchVacations } from './sheetsService';
+import { WAREHOUSE_COORDS, GEOFENCE_RADIUS_METERS } from './constants';
+
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371000; // Metres
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserState>({ 
@@ -150,7 +162,15 @@ const App: React.FC = () => {
 
     const updateWithGeo = (pos?: GeolocationPosition) => {
       if (pos) {
-        const updatedEntry = { ...newEntry, location: { lat: pos.coords.latitude, lng: pos.coords.longitude } };
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const dist = calculateDistance(lat, lng, WAREHOUSE_COORDS.lat, WAREHOUSE_COORDS.lng);
+        
+        const updatedEntry = { 
+          ...newEntry, 
+          location: { lat, lng },
+          locationName: dist <= GEOFENCE_RADIUS_METERS ? 'MAGATZEM' : undefined
+        };
         setAllEntries(prev => prev.map(e => e.id === newEntry.id ? updatedEntry : e));
         
         if (user.sheetsUrl) {
