@@ -184,7 +184,7 @@ const App: React.FC = () => {
     }
   };
 
-  const updateVacationStatus = (id: string, status: 'Aprovada' | 'Denegada') => {
+  const updateVacationStatus = async (id: string, status: 'Aprovada' | 'Denegada') => {
     const vacation = allVacations.find(v => v.id === id);
     if (!vacation) return;
 
@@ -192,9 +192,12 @@ const App: React.FC = () => {
     setAllVacations(prev => prev.map(v => v.id === id ? updatedVacation : v));
 
     if (user.sheetsUrl) {
-      syncToSheets({ ...updatedVacation, action: 'updateStatus' } as any, user.sheetsUrl).then(success => {
-        if (success) console.log("Estat de vacances actualitzat a Sheets");
-      });
+      const success = await syncToSheets({ ...updatedVacation, action: 'updateStatus' } as any, user.sheetsUrl);
+      if (success) {
+        console.log("Estat de vacances actualitzat a Sheets");
+        // Després d'actualitzar, forcem un refresh per assegurar que tenim la versió del servidor
+        await refreshVacations();
+      }
     }
   };
 
@@ -263,7 +266,14 @@ const App: React.FC = () => {
               isAdmin={user.isAdmin || false}
             />
           )}
-          {activeView === 'calendar' && <CalendarView vacations={allVacations} currentUserId={user.employeeCode || ''} onAddVacation={addVacation} />}
+          {activeView === 'calendar' && (
+            <CalendarView 
+              vacations={allVacations} 
+              currentUserId={user.employeeCode || ''} 
+              onAddVacation={addVacation} 
+              onRefresh={refreshVacations}
+            />
+          )}
           {activeView === 'admin' && <VacationAdmin vacations={allVacations} onUpdateStatus={updateVacationStatus} onRefresh={refreshVacations} />}
           {activeView === 'settings' && (
             <SettingsView 

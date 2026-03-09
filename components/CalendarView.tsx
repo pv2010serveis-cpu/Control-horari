@@ -2,17 +2,19 @@
 import React, { useState, useMemo } from 'react';
 import { HOLIDAYS_2026 } from '../constants';
 import { VacationRequest, Holiday } from '../types';
-import { ChevronLeft, ChevronRight, Calendar as CalIcon, Plus, Info, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalIcon, Plus, Info, User, RefreshCw } from 'lucide-react';
 
 interface CalendarViewProps {
   vacations: VacationRequest[];
   currentUserId: string;
   onAddVacation: (vac: Omit<VacationRequest, 'id' | 'status' | 'employeeCode' | 'employeeName'>) => void;
+  onRefresh?: () => Promise<void>;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, onAddVacation }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, onAddVacation, onRefresh }) => {
   const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1)); // Start at 2026
   const [showModal, setShowModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [newVacation, setNewVacation] = useState({
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -20,6 +22,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, o
   });
 
   const monthName = currentDate.toLocaleString('ca-ES', { month: 'long', year: 'numeric' });
+
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    setIsRefreshing(true);
+    await onRefresh();
+    setIsRefreshing(false);
+  };
 
   const daysInMonth = useMemo(() => {
     const year = currentDate.getFullYear();
@@ -62,9 +71,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, o
           <h3 className="text-lg font-bold min-w-[150px] text-center capitalize">{monthName}</h3>
           <button onClick={handleNextMonth} className="p-2 hover:bg-slate-100 rounded-full"><ChevronRight size={20} /></button>
         </div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 transition-all active:scale-95">
-          <Plus size={18} /> Demanar Permís / Vacances
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          {onRefresh && (
+            <button 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-50 text-slate-600 px-4 py-2 rounded-xl font-bold border border-slate-200 transition-all active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">Actualitzar</span>
+            </button>
+          )}
+          <button onClick={() => setShowModal(true)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-lg shadow-indigo-100 transition-all active:scale-95">
+            <Plus size={18} /> Demanar Permís
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
