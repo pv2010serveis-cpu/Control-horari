@@ -28,3 +28,20 @@ export const syncToSheets = async (data: ClockEntry | VacationRequest, url: stri
     return false;
   }
 };
+
+export const fetchVacations = async (url: string): Promise<VacationRequest[]> => {
+  if (!url || !url.startsWith('https://script.google.com')) return [];
+  
+  try {
+    // Per llegir dades necessitem que el script tingui un doGet(e)
+    const response = await fetch(`${url}?action=getVacations`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.vacations || [];
+    }
+    return [];
+  } catch (error) {
+    console.error("Error recuperant vacances:", error);
+    return [];
+  }
+};

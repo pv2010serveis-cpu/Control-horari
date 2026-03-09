@@ -18,7 +18,7 @@ import Reports from './components/Reports';
 import LoginScreen from './components/LoginScreen';
 import SettingsView from './components/SettingsView';
 import VacationAdmin from './components/VacationAdmin';
-import { syncToSheets } from './sheetsService';
+import { syncToSheets, fetchVacations } from './sheetsService';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<UserState>({ 
@@ -188,6 +188,14 @@ const App: React.FC = () => {
     setAllVacations(prev => prev.map(v => v.id === id ? { ...v, status } : v));
   };
 
+  const refreshVacations = async () => {
+    if (!user.sheetsUrl) return;
+    const remoteVacations = await fetchVacations(user.sheetsUrl);
+    if (remoteVacations.length > 0) {
+      setAllVacations(remoteVacations);
+    }
+  };
+
   const pendingCount = allEntries.filter(e => e.syncStatus !== 'Sincronitzat' && e.employeeCode === user.employeeCode).length;
 
   if (!user.isAuthenticated) {
@@ -240,7 +248,7 @@ const App: React.FC = () => {
             />
           )}
           {activeView === 'calendar' && <CalendarView vacations={allVacations} currentUserId={user.employeeCode || ''} onAddVacation={addVacation} />}
-          {activeView === 'admin' && <VacationAdmin vacations={allVacations} onUpdateStatus={updateVacationStatus} />}
+          {activeView === 'admin' && <VacationAdmin vacations={allVacations} onUpdateStatus={updateVacationStatus} onRefresh={refreshVacations} />}
           {activeView === 'settings' && (
             <SettingsView 
               sheetsUrl={user.sheetsUrl || ''} 

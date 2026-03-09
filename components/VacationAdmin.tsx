@@ -1,19 +1,42 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { VacationRequest } from '../types';
-import { Check, X, Clock, User } from 'lucide-react';
+import { Check, X, Clock, User, RefreshCw } from 'lucide-react';
 
 interface VacationAdminProps {
   vacations: VacationRequest[];
   onUpdateStatus: (id: string, status: 'Aprovada' | 'Denegada') => void;
+  onRefresh?: () => Promise<void>;
 }
 
-const VacationAdmin: React.FC<VacationAdminProps> = ({ vacations, onUpdateStatus }) => {
+const VacationAdmin: React.FC<VacationAdminProps> = ({ vacations, onUpdateStatus, onRefresh }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const pending = vacations.filter(v => v.status === 'Pendent');
   const processed = vacations.filter(v => v.status !== 'Pendent').reverse();
 
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    setIsRefreshing(true);
+    await onRefresh();
+    setIsRefreshing(false);
+  };
+
   return (
     <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-slate-800">Panell d'Administració</h2>
+        {onRefresh && (
+          <button 
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+            Actualitzar dades
+          </button>
+        )}
+      </div>
+
       <section>
         <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
           <Clock className="text-amber-500" /> Sol·licituds Pendents
