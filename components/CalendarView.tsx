@@ -50,7 +50,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, o
   };
 
   const getDayVacations = (d: Date) => {
-    const dateStr = d.toISOString().split('T')[0];
+    // Utilitzem format local YYYY-MM-DD per evitar desplaçaments horaris de l'ISOString
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    
     return vacations.filter(v => {
       const isInRange = dateStr >= v.startDate && dateStr <= v.endDate;
       // Mostrem totes les aprovades (de qualsevol)

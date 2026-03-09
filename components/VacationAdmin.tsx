@@ -14,6 +14,11 @@ const VacationAdmin: React.FC<VacationAdminProps> = ({ vacations, onUpdateStatus
   const pending = vacations.filter(v => v.status === 'Pendent');
   const processed = vacations.filter(v => v.status !== 'Pendent').reverse();
 
+  const formatDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   const handleRefresh = async () => {
     if (!onRefresh) return;
     setIsRefreshing(true);
@@ -60,7 +65,7 @@ const VacationAdmin: React.FC<VacationAdminProps> = ({ vacations, onUpdateStatus
                     </div>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-xl mb-4">
-                    <p className="text-sm font-medium text-slate-600">Del {new Date(v.startDate).toLocaleDateString('ca-ES')} al {new Date(v.endDate).toLocaleDateString('ca-ES')}</p>
+                    <p className="text-sm font-medium text-slate-600">Del {formatDate(v.startDate)} al {formatDate(v.endDate)}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -93,7 +98,7 @@ const VacationAdmin: React.FC<VacationAdminProps> = ({ vacations, onUpdateStatus
                 <tr key={v.id}>
                   <td className="p-4 font-bold text-sm text-slate-700">{v.employeeName}</td>
                   <td className="p-4 text-xs text-slate-500">
-                    {new Date(v.startDate).toLocaleDateString('ca-ES')} - {new Date(v.endDate).toLocaleDateString('ca-ES')}
+                    {formatDate(v.startDate)} - {formatDate(v.endDate)}
                   </td>
                   <td className="p-4 text-right">
                     <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${

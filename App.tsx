@@ -144,10 +144,23 @@ const App: React.FC = () => {
       syncStatus: 'Pendent'
     };
 
+    // Actualitzem l'estat local immediatament per a una resposta instantània
+    setAllEntries(prev => [...prev, newEntry]);
+    setIsClockedIn(newType === ClockType.IN);
+
     const updateWithGeo = (pos?: GeolocationPosition) => {
-      if (pos) newEntry.location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      setAllEntries(prev => [...prev, newEntry]);
-      if (user.sheetsUrl) {
+      if (pos) {
+        const updatedEntry = { ...newEntry, location: { lat: pos.coords.latitude, lng: pos.coords.longitude } };
+        setAllEntries(prev => prev.map(e => e.id === newEntry.id ? updatedEntry : e));
+        
+        if (user.sheetsUrl) {
+          syncToSheets(updatedEntry, user.sheetsUrl).then(success => {
+            if (success) {
+              setAllEntries(prev => prev.map(e => e.id === newEntry.id ? { ...e, syncStatus: 'Sincronitzat' } : e));
+            }
+          });
+        }
+      } else if (user.sheetsUrl) {
         syncToSheets(newEntry, user.sheetsUrl).then(success => {
           if (success) {
             setAllEntries(prev => prev.map(e => e.id === newEntry.id ? { ...e, syncStatus: 'Sincronitzat' } : e));
@@ -157,9 +170,11 @@ const App: React.FC = () => {
     };
 
     if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => updateWithGeo(pos), (err) => {
-        updateWithGeo();
-      });
+      navigator.geolocation.getCurrentPosition(
+        (pos) => updateWithGeo(pos), 
+        (err) => updateWithGeo(),
+        { timeout: 5000 } // Posem un timeout per no esperar eternament
+      );
     } else {
       updateWithGeo();
     }
