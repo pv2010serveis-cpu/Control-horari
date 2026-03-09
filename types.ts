@@ -1,35 +1,44 @@
 
-export type EntryType = 'IN' | 'OUT';
-
-export interface LocationData {
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
+export enum ClockType {
+  IN = 'IN',
+  OUT = 'OUT'
 }
 
-export interface TimeEntry {
+export interface ClockEntry {
   id: string;
-  userId: string;
-  userName: string;
-  timestamp: Date;
-  type: EntryType;
-  location?: LocationData;
-  locationLabel?: string;
-  synced?: boolean; // Nou camp per control de sincronització
+  employeeCode: string;
+  employeeName: string;
+  type: ClockType;
+  timestamp: number;
+  syncStatus?: 'Pendent' | 'Sincronitzat' | 'Error';
+  location?: {
+    lat: number;
+    lng: number;
+  };
 }
 
 export interface VacationRequest {
   id: string;
-  userId: string;
-  userName: string;
-  startDate: Date;
-  endDate: Date;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  employeeCode: string;
+  employeeName: string;
+  startDate: string;
+  endDate: string;
+  status: 'Pendent' | 'Aprovada' | 'Denegada';
+  type: 'Vacances' | 'Assumptes Propis' | 'Baixa';
 }
 
-export interface User {
-  id: string;
+export interface Holiday {
+  date: string;
   name: string;
-  pin: string;
-  role: 'EMPLOYEE' | 'ADMIN';
+  type: 'Official' | 'Conveni' | 'Vacances';
+}
+
+export type ViewType = 'dashboard' | 'calendar' | 'reports' | 'settings' | 'admin';
+
+export interface UserState {
+  employeeCode: string | null;
+  employeeName: string | null;
+  isAuthenticated: boolean;
+  sheetsUrl?: string;
+  isAdmin?: boolean;
 }

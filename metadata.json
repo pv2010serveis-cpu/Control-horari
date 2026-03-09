@@ -1,6 +1,6 @@
 {
-  "name": "CONTROL HORARI",
-  "description": "Sistema de control horari professional amb calendari laboral 2026.",
+  "name": "HorariPro - Control Horari ",
+  "description": "Una aplicació completa per al control horari diari i mensual, gestió de festius i planificació de vacances per a treballadors.",
   "requestFramePermissions": [
     "geolocation"
   ]

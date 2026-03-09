@@ -1,185 +1,200 @@
 
-import React, { useMemo } from 'react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area 
-} from 'recharts';
-import { TimeEntry } from '../types';
+import React, { useMemo, useState } from 'react';
+import { ClockEntry, ClockType } from '../types';
+import { Download, MapPin, Clock as ClockIcon, Calendar as CalendarIcon, CloudUpload, CheckCircle2, RefreshCw } from 'lucide-react';
 
 interface ReportsProps {
-  entries: TimeEntry[];
+  entries: ClockEntry[];
+  employeeCode: string;
+  onSyncPending?: () => Promise<void>;
 }
 
-const Reports: React.FC<ReportsProps> = ({ entries }) => {
-  // Calculem les hores per dia de la setmana actual
-  const weeklyData = useMemo(() => {
-    const days = ['Dg', 'Dl', 'Dt', 'Dc', 'Dj', 'Dv', 'Ds'];
-    const now = new Date();
-    const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
-    startOfWeek.setHours(0,0,0,0);
+interface Session {
+  date: string;
+  in?: ClockEntry;
+  out?: ClockEntry;
+}
 
-    const result = [
-      { name: 'Dl', hours: 0 },
-      { name: 'Dt', hours: 0 },
-      { name: 'Dc', hours: 0 },
-      { name: 'Dj', hours: 0 },
-      { name: 'Dv', hours: 0 },
-      { name: 'Ds', hours: 0 },
-      { name: 'Dg', hours: 0 },
-    ];
+const Reports: React.FC<ReportsProps> = ({ entries, employeeCode, onSyncPending }) => {
+  const [isSyncing, setIsSyncing] = useState(false);
 
-    // Només processem fitxatges tancats (IN seguit d'OUT)
-    const sorted = [...entries].sort((a,b) => a.timestamp.getTime() - b.timestamp.getTime());
+  // Organitzem els registres en "sessions" (Entrada + Sortida)
+  const sessions = useMemo(() => {
+    const result: Session[] = [];
+    const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
     
-    for(let i=0; i < sorted.length; i++) {
-      if(sorted[i].type === 'IN' && sorted[i+1]?.type === 'OUT') {
-        const d = sorted[i].timestamp;
-        if(d >= startOfWeek) {
-          const dayName = days[d.getDay()];
-          const diffMs = sorted[i+1].timestamp.getTime() - sorted[i].timestamp.getTime();
-          const hours = diffMs / 3600000;
-          
-          const target = result.find(r => r.name === dayName);
-          if(target) target.hours += Number(hours.toFixed(2));
+    sorted.forEach(entry => {
+      const dateKey = new Date(entry.timestamp).toLocaleDateString('ca-ES');
+      
+      if (entry.type === ClockType.IN) {
+        result.push({ date: dateKey, in: entry });
+      } else {
+        const lastSessionWithoutOut = [...result].reverse().find(s => !s.out && s.date === dateKey);
+        if (lastSessionWithoutOut) {
+          lastSessionWithoutOut.out = entry;
+        } else {
+          result.push({ date: dateKey, out: entry });
         }
-        i++;
       }
-    }
-    return result;
-  }, [entries]);
-
-  // Calculem historial mensual (últims 4 mesos)
-  const monthlyData = useMemo(() => {
-    const months = ['Gen', 'Feb', 'Mar', 'Abr', 'Maig', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Des'];
-    const result: any[] = [];
-    
-    const sorted = [...entries].sort((a,b) => a.timestamp.getTime() - b.timestamp.getTime());
-    const totals: Record<string, number> = {};
-
-    for(let i=0; i < sorted.length; i++) {
-      if(sorted[i].type === 'IN' && sorted[i+1]?.type === 'OUT') {
-        const m = months[sorted[i].timestamp.getMonth()];
-        const diff = (sorted[i+1].timestamp.getTime() - sorted[i].timestamp.getTime()) / 3600000;
-        totals[m] = (totals[m] || 0) + diff;
-        i++;
-      }
-    }
-
-    Object.keys(totals).forEach(m => {
-      result.push({ month: m, val: Math.round(totals[m]) });
     });
 
-    return result.length > 0 ? result : [{month: '-', val: 0}];
+    return result.reverse();
   }, [entries]);
 
-  // Registres agrupats per dia per a la taula
-  const tableRows = useMemo(() => {
-    const rows: any[] = [];
-    const sorted = [...entries].sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime());
+  const pendingCount = useMemo(() => {
+    return entries.filter(e => e.syncStatus !== 'Sincronitzat').length;
+  }, [entries]);
 
-    for(let i=0; i < sorted.length; i++) {
-      // Busquem l'entrada corresponent a una sortida (estan ordenats desc)
-      if(sorted[i].type === 'OUT' && sorted[i+1]?.type === 'IN' && 
-         sorted[i].timestamp.toDateString() === sorted[i+1].timestamp.toDateString()) {
-        
-        const inTime = sorted[i+1].timestamp;
-        const outTime = sorted[i].timestamp;
-        const diffMs = outTime.getTime() - inTime.getTime();
-        const hours = Math.floor(diffMs / 3600000);
-        const mins = Math.floor((diffMs % 3600000) / 60000);
-
-        rows.push({
-          date: inTime.toLocaleDateString('ca-ES', { day:'numeric', month:'long' }),
-          in: inTime.toLocaleTimeString('ca-ES', { hour:'2-digit', minute:'2-digit' }),
-          out: outTime.toLocaleTimeString('ca-ES', { hour:'2-digit', minute:'2-digit' }),
-          total: `${hours}h ${mins}m`,
-          status: 'Validat'
-        });
-        i++;
-      }
+  const calculateDuration = (session: Session) => {
+    if (session.in && session.out) {
+      const diff = session.out.timestamp - session.in.timestamp;
+      const hours = Math.floor(diff / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      return `${hours}h ${minutes}m`;
     }
-    return rows;
-  }, [entries]);
+    return '--';
+  };
+
+  const handleManualSync = async () => {
+    if (!onSyncPending || pendingCount === 0 || isSyncing) return;
+    setIsSyncing(true);
+    await onSyncPending();
+    setIsSyncing(false);
+  };
+
+  const exportToCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Data;Hora Entrada;Loc Entrada;Hora Sortida;Loc Sortida;Durada;ID Unic\n";
+    
+    sessions.forEach(s => {
+      const hEntrada = s.in ? new Date(s.in.timestamp).toLocaleTimeString('ca-ES') : "";
+      const lEntrada = s.in?.location ? `${s.in.location.lat},${s.in.location.lng}` : "";
+      const hSortida = s.out ? new Date(s.out.timestamp).toLocaleTimeString('ca-ES') : "";
+      const lSortida = s.out?.location ? `${s.out.location.lat},${s.out.location.lng}` : "";
+      const durada = calculateDuration(s);
+      const idUnic = s.in?.id || s.out?.id || "";
+      
+      csvContent += `${s.date};${hEntrada};${lEntrada};${hSortida};${lSortida};${durada};${idUnic}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `HorariPro_Resum_${employeeCode}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Hores Setmanals</h3>
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                <Tooltip 
-                  cursor={{fill: '#f8fafc'}} 
-                  contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px'}}
-                />
-                <Bar dataKey="hours" fill="#4f46e5" radius={[4, 4, 0, 0]} barSize={30} />
-              </BarChart>
-            </ResponsiveContainer>
+    <div className="space-y-6">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+            <CalendarIcon size={24} />
+          </div>
+          <div>
+            <h3 className="font-bold text-lg text-slate-800">Resum de Jornades</h3>
+            <p className="text-sm text-slate-500">ID Empleat: {employeeCode}</p>
           </div>
         </div>
-
-        <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Resum Mensual (Hores)</h3>
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={monthlyData}>
-                <defs>
-                  <linearGradient id="colorVal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#818cf8" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f8fafc" />
-                <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', fontSize: '12px'}} />
-                <Area type="monotone" dataKey="val" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorVal)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        
+        <div className="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+          <button 
+            onClick={handleManualSync}
+            disabled={pendingCount === 0 || isSyncing}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all shadow-md ${
+              pendingCount > 0 
+                ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100' 
+                : 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none'
+            }`}
+          >
+            {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <CloudUpload size={18} />}
+            {isSyncing ? 'Sincronitzant...' : `Pujar a Excel (${pendingCount})`}
+          </button>
+          
+          <button 
+            onClick={exportToCSV} 
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-100"
+          >
+            <Download size={18} />
+            Exportar CSV
+          </button>
         </div>
       </div>
 
-      <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Detall de Jornades</h3>
-        <div className="overflow-x-auto -mx-6 md:mx-0">
-          <table className="w-full text-left min-w-[500px]">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="text-slate-400 text-[10px] uppercase tracking-wider border-b border-slate-50">
-                <th className="pb-4 px-6 font-bold">Data</th>
-                <th className="pb-4 px-6 font-bold">Entrada</th>
-                <th className="pb-4 px-6 font-bold">Sortida</th>
-                <th className="pb-4 px-6 font-bold text-right">Total</th>
+              <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Data</th>
+                <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Entrada</th>
+                <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Sortida</th>
+                <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Durada</th>
+                <th className="px-6 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Estat Núvol</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {tableRows.map((row, i) => (
-                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-4 px-6 text-xs font-bold text-slate-700">{row.date}</td>
-                  <td className="py-4 px-6 font-mono text-slate-500 text-xs">{row.in}</td>
-                  <td className="py-4 px-6 font-mono text-slate-500 text-xs">{row.out}</td>
-                  <td className="py-4 px-6 text-right">
-                    <span className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-                      {row.total}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {tableRows.length === 0 && (
+              {sessions.map((session, idx) => {
+                const isSynced = (session.in ? session.in.syncStatus === 'Sincronitzat' : true) && 
+                                 (session.out ? session.out.syncStatus === 'Sincronitzat' : true);
+                
+                return (
+                  <tr key={`${session.date}-${idx}`} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className="font-bold text-slate-700">{session.date}</div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm font-semibold text-green-600">
+                          {session.in ? new Date(session.in.timestamp).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                        </span>
+                        {session.in?.location && (
+                          <span className="flex items-center gap-0.5 text-[8px] text-slate-400 mt-1">
+                            <MapPin size={8} /> GPS OK
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex flex-col items-center">
+                        <span className="text-sm font-semibold text-rose-500">
+                          {session.out ? new Date(session.out.timestamp).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                        </span>
+                        {session.out?.location && (
+                          <span className="flex items-center gap-0.5 text-[8px] text-slate-400 mt-1">
+                            <MapPin size={8} /> GPS OK
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-center">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 rounded-full text-xs font-bold text-slate-600">
+                        <ClockIcon size={12} />
+                        {calculateDuration(session)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-right">
+                      {isSynced ? (
+                        <div className="flex items-center justify-end gap-1 text-green-500">
+                           <CheckCircle2 size={14} />
+                           <span className="text-[10px] font-bold uppercase">Sincronitzat</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1 text-amber-500">
+                           <RefreshCw size={14} />
+                           <span className="text-[10px] font-bold uppercase">Pendent</span>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {sessions.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-slate-300 font-bold uppercase text-[10px] tracking-widest">
-                    No hi ha jornades completades
+                  <td colSpan={5} className="px-6 py-20 text-center text-slate-400 italic">
+                    Encara no hi ha cap jornada registrada.
                   </td>
                 </tr>
               )}
@@ -187,6 +202,17 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
           </table>
         </div>
       </div>
+      
+      {pendingCount > 0 && (
+        <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex items-start gap-3">
+          <RefreshCw size={18} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-800 leading-relaxed">
+            Tens <strong>{pendingCount} fitxatges</strong> que només estan guardats en aquest dispositiu. 
+            Prem el botó de pujar per assegurar-te que l'empresa els rep al full d'Excel. 
+            <em> Nota: L'Excel no duplicarà fitxatges encara que els pugis dues vegades.</em>
+          </p>
+        </div>
+      )}
     </div>
   );
 };
