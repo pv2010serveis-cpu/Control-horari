@@ -185,7 +185,17 @@ const App: React.FC = () => {
   };
 
   const updateVacationStatus = (id: string, status: 'Aprovada' | 'Denegada') => {
-    setAllVacations(prev => prev.map(v => v.id === id ? { ...v, status } : v));
+    const vacation = allVacations.find(v => v.id === id);
+    if (!vacation) return;
+
+    const updatedVacation = { ...vacation, status };
+    setAllVacations(prev => prev.map(v => v.id === id ? updatedVacation : v));
+
+    if (user.sheetsUrl) {
+      syncToSheets({ ...updatedVacation, action: 'updateStatus' } as any, user.sheetsUrl).then(success => {
+        if (success) console.log("Estat de vacances actualitzat a Sheets");
+      });
+    }
   };
 
   const refreshVacations = async () => {
@@ -195,6 +205,12 @@ const App: React.FC = () => {
       setAllVacations(remoteVacations);
     }
   };
+
+  useEffect(() => {
+    if (user.isAuthenticated && user.sheetsUrl) {
+      refreshVacations();
+    }
+  }, [user.isAuthenticated, user.sheetsUrl, activeView]);
 
   const pendingCount = allEntries.filter(e => e.syncStatus !== 'Sincronitzat' && e.employeeCode === user.employeeCode).length;
 

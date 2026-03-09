@@ -44,8 +44,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, o
     const dateStr = d.toISOString().split('T')[0];
     return vacations.filter(v => {
       const isInRange = dateStr >= v.startDate && dateStr <= v.endDate;
-      if (v.employeeCode === currentUserId) return isInRange;
-      return isInRange && v.status === 'Aprovada';
+      // Mostrem totes les aprovades (de qualsevol)
+      if (v.status === 'Aprovada') return isInRange;
+      // Mostrem les pendents NOMÉS si són de l'usuari actual
+      return isInRange && v.employeeCode === currentUserId && v.status === 'Pendent';
     });
   };
 
