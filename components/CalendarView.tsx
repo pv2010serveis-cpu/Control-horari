@@ -117,11 +117,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, o
                     )}
                     {dayVacations.map(v => (
                       <div key={v.id} className={`text-[7px] px-1 rounded truncate leading-tight font-bold ${
+                        v.status === 'Pendent' ? 'opacity-50 border border-dashed border-current' : ''
+                      } ${
                         v.employeeCode === currentUserId 
                           ? 'bg-indigo-700 text-white' 
                           : 'bg-slate-200 text-slate-600'
                       }`}>
                         {v.employeeCode === currentUserId ? 'JO' : v.employeeName.split(' ')[0]}
+                        {v.status === 'Pendent' && ' (?)'}
                       </div>
                     ))}
                   </div>
