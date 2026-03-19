@@ -44,6 +44,7 @@ const App: React.FC = () => {
   const [allEntries, setAllEntries] = useState<ClockEntry[]>([]);
   const [allVacations, setAllVacations] = useState<VacationRequest[]>([]);
   const [isClockedIn, setIsClockedIn] = useState(false);
+  const [rescueMessage, setRescueMessage] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
@@ -81,6 +82,45 @@ const App: React.FC = () => {
       localStorage.setItem('horaripro_sheets_url', user.sheetsUrl);
     }
   }, [allEntries, allVacations, user]);
+
+  useEffect(() => {
+    if (user.employeeCode && allEntries.length > 0) {
+      const userEntries = allEntries.filter(e => e.employeeCode === user.employeeCode);
+      const lastEntry = userEntries[userEntries.length - 1];
+      
+      if (lastEntry && lastEntry.type === ClockType.IN) {
+        const lastDate = new Date(lastEntry.timestamp).setHours(0,0,0,0);
+        const todayDate = new Date().setHours(0,0,0,0);
+        
+        if (lastDate < todayDate) {
+          // Rescat automàtic
+          const rescueDate = new Date(lastEntry.timestamp);
+          rescueDate.setHours(15, 30, 0, 0);
+          
+          const rescueEntry: ClockEntry = {
+            id: crypto.randomUUID(),
+            employeeCode: user.employeeCode,
+            employeeName: user.employeeName || 'Desconegut',
+            type: ClockType.OUT,
+            timestamp: rescueDate.getTime(),
+            syncStatus: 'Pendent',
+            locationName: 'RESCAT AUTOMÀTIC'
+          };
+          
+          setAllEntries(prev => [...prev, rescueEntry]);
+          setRescueMessage(`S'ha tancat automàticament la sessió d'ahir a les 15:30 (Rescat Automàtic).`);
+          
+          if (user.sheetsUrl) {
+            syncToSheets(rescueEntry, user.sheetsUrl).then(success => {
+              if (success) {
+                setAllEntries(prev => prev.map(e => e.id === rescueEntry.id ? { ...e, syncStatus: 'Sincronitzat' } : e));
+              }
+            });
+          }
+        }
+      }
+    }
+  }, [user.employeeCode, user.isAuthenticated]);
 
   useEffect(() => {
     if (user.employeeCode) {
@@ -299,6 +339,8 @@ const App: React.FC = () => {
               onClockAction={handleClockAction} 
               onSyncPending={handleSyncPending}
               isAdmin={user.isAdmin || false}
+              rescueMessage={rescueMessage}
+              onClearRescueMessage={() => setRescueMessage(null)}
             />
           )}
           {activeView === 'calendar' && (

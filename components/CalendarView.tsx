@@ -45,7 +45,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({ vacations, currentUserId, o
   }, [currentDate]);
 
   const getHoliday = (d: Date): Holiday | undefined => {
-    const dateStr = d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     return HOLIDAYS_2026.find(h => h.date === dateStr);
   };
 

@@ -19,9 +19,14 @@ export const HOLIDAYS_2026: Holiday[] = [
   // Festes Conveni (Groc)
   { date: '2026-01-02', name: 'Conveni', type: 'Conveni' },
   { date: '2026-01-05', name: 'Conveni', type: 'Conveni' },
-  { date: '2026-03-31', name: 'Conveni', type: 'Conveni' },
+  { date: '2026-04-01', name: 'Conveni', type: 'Conveni' },
+  { date: '2026-04-02', name: 'Conveni', type: 'Conveni' },
+  { date: '2026-06-12', name: 'Conveni', type: 'Conveni' },
   { date: '2026-12-07', name: 'Conveni', type: 'Conveni' },
   { date: '2026-12-24', name: 'Conveni', type: 'Conveni' },
+  { date: '2026-12-28', name: 'Conveni', type: 'Conveni' },
+  { date: '2026-12-29', name: 'Conveni', type: 'Conveni' },
+  { date: '2026-12-30', name: 'Conveni', type: 'Conveni' },
   { date: '2026-12-31', name: 'Conveni', type: 'Conveni' },
 
   // Vacances Agost (Blau) - 3 al 31 (excepte festius i caps de setmana)

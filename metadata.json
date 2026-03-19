@@ -1,5 +1,5 @@
 {
-  "name": "HorariPro - Control Horari ",
+  "name": "HorariPro - Control Horari PV2010",
   "description": "Una aplicació completa per al control horari diari i mensual, gestió de festius i planificació de vacances per a treballadors.",
   "requestFramePermissions": [
     "geolocation"

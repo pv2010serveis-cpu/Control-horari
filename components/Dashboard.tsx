@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { ClockEntry, ClockType } from '../types';
 import { generateMonthlyInsights } from '../geminiService';
-import { Sparkles, ArrowUpRight, ArrowDownRight, Clock, Fingerprint, LogIn, LogOut } from 'lucide-react';
+import { Sparkles, ArrowUpRight, ArrowDownRight, Clock, Fingerprint, LogIn, LogOut, AlertTriangle, X } from 'lucide-react';
 
 interface DashboardProps {
   entries: ClockEntry[];
@@ -10,9 +10,19 @@ interface DashboardProps {
   onClockAction: () => void;
   onSyncPending: () => void;
   isAdmin: boolean;
+  rescueMessage?: string | null;
+  onClearRescueMessage?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ entries, isClockedIn, onClockAction, onSyncPending, isAdmin }) => {
+const Dashboard: React.FC<DashboardProps> = ({ 
+  entries, 
+  isClockedIn, 
+  onClockAction, 
+  onSyncPending, 
+  isAdmin,
+  rescueMessage,
+  onClearRescueMessage
+}) => {
   const [aiInsights, setAiInsights] = useState<string>("");
   const [loadingAi, setLoadingAi] = useState(false);
 
@@ -50,6 +60,25 @@ const Dashboard: React.FC<DashboardProps> = ({ entries, isClockedIn, onClockActi
 
   return (
     <div className="space-y-6">
+      {rescueMessage && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-500">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 p-2 rounded-lg text-amber-600">
+              <AlertTriangle size={20} />
+            </div>
+            <p className="text-sm font-medium text-amber-800">{rescueMessage}</p>
+          </div>
+          {onClearRescueMessage && (
+            <button 
+              onClick={onClearRescueMessage}
+              className="text-amber-400 hover:text-amber-600 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Botó de fitxar principal */}
       <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200 flex flex-col items-center text-center">
         <div className={`w-24 h-24 rounded-full mb-6 flex items-center justify-center transition-all ${isClockedIn ? 'bg-rose-50 text-rose-500' : 'bg-indigo-50 text-indigo-600'}`}>
